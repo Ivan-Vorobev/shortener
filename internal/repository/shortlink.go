@@ -17,10 +17,15 @@ var (
 	ErrorCreate   = errors.New("short link could not be created")
 )
 
+var (
+	shortLinks = make(map[model.Link]model.ShortLink)
+	links      = make(map[model.ShortLink]model.Link)
+)
+
 func NewShortLinkRepository() *ShortLinkRepository {
 	return &ShortLinkRepository{
-		shortLinks: make(map[model.Link]model.ShortLink),
-		links:      make(map[model.ShortLink]model.Link),
+		shortLinks: shortLinks,
+		links:      links,
 	}
 }
 

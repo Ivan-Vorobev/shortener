@@ -5,9 +5,9 @@ import (
 	"Ivan-Vorobev/shortener/internal/repository"
 )
 
-func NewShortLinkService(repository *repository.ShortLinkRepository) *ShortLinkService {
+func NewShortLinkService() *ShortLinkService {
 	return &ShortLinkService{
-		repo: repository,
+		repo: repository.NewShortLinkRepository(),
 	}
 }
 

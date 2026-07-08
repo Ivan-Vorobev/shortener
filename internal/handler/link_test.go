@@ -20,8 +20,7 @@ func TestCreateLink(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	handler := CreateMainHandler()
-	handler(response, request)
+	CreateUrl(response, request)
 
 	res := response.Result()
 	// проверяем код ответа
@@ -46,8 +45,7 @@ func TestGetLink(t *testing.T) {
 
 	responsePost := httptest.NewRecorder()
 
-	handler := CreateMainHandler()
-	handler(responsePost, requestPost)
+	CreateUrl(responsePost, requestPost)
 
 	res := responsePost.Result()
 	// проверяем код ответа
@@ -70,7 +68,7 @@ func TestGetLink(t *testing.T) {
 
 	responseGet := httptest.NewRecorder()
 
-	handler(responseGet, requestGet)
+	ReturnUrl(responseGet, requestGet)
 
 	resGet := responseGet.Result()
 

@@ -11,29 +11,8 @@ import (
 	"strings"
 )
 
-func CreateMainHandler() func(http.ResponseWriter, *http.Request) {
-	shortLinkService := service.NewShortLinkService(repository.NewShortLinkRepository())
-	return func(res http.ResponseWriter, req *http.Request) {
-		if req.Method == http.MethodPost {
-			if req.URL.Path != "/" {
-				http.Error(res, fmt.Sprintf("Method POST not allow for url: %s", req.URL.Path), http.StatusBadRequest)
-				return
-			}
-
-			createUrl(res, req, shortLinkService)
-			return
-		}
-
-		if req.Method == http.MethodGet && len(req.URL.Path) > 1 {
-			returnUrl(res, req, shortLinkService)
-			return
-		}
-
-		http.Error(res, "Method not allowed", http.StatusBadRequest)
-	}
-}
-
-func returnUrl(res http.ResponseWriter, req *http.Request, shortLinkService *service.ShortLinkService) {
+func ReturnUrl(res http.ResponseWriter, req *http.Request) {
+	shortLinkService := service.NewShortLinkService()
 	shortLink := model.NewShortLink(strings.TrimLeft(req.URL.Path, "/"))
 	link, err := shortLinkService.Get(shortLink)
 
@@ -58,7 +37,8 @@ func returnUrl(res http.ResponseWriter, req *http.Request, shortLinkService *ser
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func createUrl(res http.ResponseWriter, req *http.Request, shortLinkService *service.ShortLinkService) {
+func CreateUrl(res http.ResponseWriter, req *http.Request) {
+	shortLinkService := service.NewShortLinkService()
 	body, err := io.ReadAll(req.Body)
 
 	if err != nil {
