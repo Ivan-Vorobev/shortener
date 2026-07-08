@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"Ivan-Vorobev/shortener/internal/config"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +21,9 @@ func TestCreateLink(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	CreateUrl(response, request)
+	conf := config.NewDefaultConfig()
+	router := NewRouter(conf)
+	router.ServeHTTP(response, request)
 
 	res := response.Result()
 	// проверяем код ответа
@@ -30,7 +33,7 @@ func TestCreateLink(t *testing.T) {
 	defer res.Body.Close()
 	resBody, err := io.ReadAll(res.Body)
 
-	responseUrl := fmt.Sprintf("http://%s/", request.Host)
+	responseUrl := fmt.Sprintf("%s/", conf.BaseURL)
 	require.NoError(t, err)
 	assert.Equal(t, "text/plain", res.Header.Get("Content-Type"))
 	assert.True(t, strings.HasPrefix(string(resBody), responseUrl))
@@ -45,7 +48,8 @@ func TestGetLink(t *testing.T) {
 
 	responsePost := httptest.NewRecorder()
 
-	CreateUrl(responsePost, requestPost)
+	router := NewRouter(config.NewDefaultConfig())
+	router.ServeHTTP(responsePost, requestPost)
 
 	res := responsePost.Result()
 	// проверяем код ответа
@@ -68,7 +72,7 @@ func TestGetLink(t *testing.T) {
 
 	responseGet := httptest.NewRecorder()
 
-	ReturnUrl(responseGet, requestGet)
+	router.ServeHTTP(responseGet, requestGet)
 
 	resGet := responseGet.Result()
 

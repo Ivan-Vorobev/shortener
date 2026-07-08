@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"Ivan-Vorobev/shortener/internal/config"
 	"Ivan-Vorobev/shortener/internal/model"
 	"Ivan-Vorobev/shortener/internal/repository"
 	"Ivan-Vorobev/shortener/internal/service"
@@ -38,6 +39,12 @@ func ReturnUrl(res http.ResponseWriter, req *http.Request) {
 }
 
 func CreateUrl(res http.ResponseWriter, req *http.Request) {
+	conf, ok := req.Context().Value(CtxConfigKey).(*config.Configuration)
+	if !ok {
+		http.Error(res, "configuration not set", http.StatusInternalServerError)
+		return
+	}
+
 	shortLinkService := service.NewShortLinkService()
 	body, err := io.ReadAll(req.Body)
 
@@ -61,5 +68,5 @@ func CreateUrl(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte(fmt.Sprintf("http://%s%s", req.Host, shortLink.String())))
+	res.Write([]byte(fmt.Sprintf("%s%s", conf.BaseURL, shortLink.String())))
 }
