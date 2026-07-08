@@ -17,7 +17,7 @@ func NewShortLink(shortLink string) ShortLink {
 
 func (s ShortLink) GetHash() (string, error) {
 	if s.value == "" {
-		return "", errors.New("Short link is empty")
+		return "", errors.New("short link is empty")
 	}
 
 	return s.value, nil

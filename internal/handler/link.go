@@ -38,7 +38,7 @@ func returnUrl(res http.ResponseWriter, req *http.Request, shortLinkService *ser
 	link, err := shortLinkService.Get(shortLink)
 
 	if err != nil {
-		if errors.As(err, &repository.ErrorNotFound) {
+		if errors.Is(err, repository.ErrorNotFound) {
 			http.Error(res, "Short link not found", http.StatusNotFound)
 			return
 		}
