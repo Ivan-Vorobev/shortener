@@ -12,10 +12,21 @@ import (
 	"strings"
 )
 
-func ReturnUrl(res http.ResponseWriter, req *http.Request) {
-	shortLinkService := service.NewShortLinkService()
+type LinkHandler struct {
+	configuration    config.Configuration
+	shortLinkService service.ShortLinkService
+}
+
+func NewLinkHandler(config *config.Configuration, service *service.ShortLinkService) *LinkHandler {
+	return &LinkHandler{
+		configuration:    *config,
+		shortLinkService: *service,
+	}
+}
+
+func (l *LinkHandler) ReturnFullUrl(res http.ResponseWriter, req *http.Request) {
 	shortLink := model.NewShortLink(strings.TrimLeft(req.URL.Path, "/"))
-	link, err := shortLinkService.Get(shortLink)
+	link, err := l.shortLinkService.Get(shortLink)
 
 	if err != nil {
 		if errors.Is(err, repository.ErrorNotFound) {
@@ -38,14 +49,7 @@ func ReturnUrl(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func CreateUrl(res http.ResponseWriter, req *http.Request) {
-	conf, ok := req.Context().Value(CtxConfigKey).(*config.Configuration)
-	if !ok {
-		http.Error(res, "configuration not set", http.StatusInternalServerError)
-		return
-	}
-
-	shortLinkService := service.NewShortLinkService()
+func (l *LinkHandler) CreateShortUrl(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 
 	if err != nil {
@@ -60,7 +64,7 @@ func CreateUrl(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	shortLink, err := shortLinkService.Create(link)
+	shortLink, err := l.shortLinkService.Create(link)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
@@ -68,5 +72,5 @@ func CreateUrl(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte(fmt.Sprintf("%s%s", conf.BaseURL, shortLink.String())))
+	res.Write([]byte(fmt.Sprintf("%s%s", l.configuration.BaseURL, shortLink.String())))
 }

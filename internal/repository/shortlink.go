@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 )
 
 const HashSize = 8
@@ -14,27 +15,26 @@ const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 
 var (
 	ErrorNotFound = errors.New("short link not found")
-	ErrorCreate   = errors.New("short link could not be created")
 )
 
-var (
-	shortLinks = make(map[model.Link]model.ShortLink)
-	links      = make(map[model.ShortLink]model.Link)
-)
-
-func NewShortLinkRepository() *ShortLinkRepository {
+func NewMemoryShortLinkRepository(shortLinks map[model.Link]model.ShortLink, links map[model.ShortLink]model.Link) *ShortLinkRepository {
 	return &ShortLinkRepository{
 		shortLinks: shortLinks,
 		links:      links,
+		mutex:      sync.RWMutex{},
 	}
 }
 
 type ShortLinkRepository struct {
 	shortLinks map[model.Link]model.ShortLink
 	links      map[model.ShortLink]model.Link
+	mutex      sync.RWMutex
 }
 
 func (s *ShortLinkRepository) Get(shortLink model.ShortLink) (model.Link, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	link, ok := s.links[shortLink]
 	if !ok {
 		return model.Link{}, ErrorNotFound
@@ -43,18 +43,21 @@ func (s *ShortLinkRepository) Get(shortLink model.ShortLink) (model.Link, error)
 	return link, nil
 }
 
-func (s *ShortLinkRepository) Create(link model.Link) (model.ShortLink, error) {
+func (s *ShortLinkRepository) Create(link model.Link) (shortLink model.ShortLink, err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if shortLink, ok := s.shortLinks[link]; ok {
 		return shortLink, nil
 	}
 
 	for {
-		hash, err := s.generateHash()
+		hash, err := generateHash()
 		if err != nil {
-			return model.ShortLink{}, fmt.Errorf("ShortLink.generateHsh: %w", err)
+			return model.ShortLink{}, fmt.Errorf("generateHsh: %w", err)
 		}
 
-		shortLink := model.NewShortLink(hash)
+		shortLink = model.NewShortLink(hash)
 
 		if _, ok := s.links[shortLink]; ok {
 			continue
@@ -65,14 +68,10 @@ func (s *ShortLinkRepository) Create(link model.Link) (model.ShortLink, error) {
 		break
 	}
 
-	if res, ok := s.shortLinks[link]; ok {
-		return res, nil
-	}
-
-	return model.ShortLink{}, ErrorCreate
+	return shortLink, nil
 }
 
-func (s *ShortLinkRepository) generateHash() (string, error) {
+func generateHash() (string, error) {
 	length := HashSize
 	code := make([]byte, length)
 

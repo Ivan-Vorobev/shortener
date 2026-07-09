@@ -2,17 +2,21 @@ package service
 
 import (
 	"Ivan-Vorobev/shortener/internal/model"
-	"Ivan-Vorobev/shortener/internal/repository"
 )
 
-func NewShortLinkService() *ShortLinkService {
+type ShortLinkRepository interface {
+	Create(link model.Link) (model.ShortLink, error)
+	Get(shortLink model.ShortLink) (model.Link, error)
+}
+
+func NewShortLinkService(repo ShortLinkRepository) *ShortLinkService {
 	return &ShortLinkService{
-		repo: repository.NewShortLinkRepository(),
+		repo: repo,
 	}
 }
 
 type ShortLinkService struct {
-	repo *repository.ShortLinkRepository
+	repo ShortLinkRepository
 }
 
 func (s *ShortLinkService) Create(link model.Link) (model.ShortLink, error) {
