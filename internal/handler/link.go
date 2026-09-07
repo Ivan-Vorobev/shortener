@@ -24,7 +24,7 @@ func NewLinkHandler(config *config.Configuration, service *service.ShortLinkServ
 	}
 }
 
-func (l *LinkHandler) ReturnFullUrl(res http.ResponseWriter, req *http.Request) {
+func (l *LinkHandler) ReturnFullURL(res http.ResponseWriter, req *http.Request) {
 	shortLink := model.NewShortLink(strings.TrimLeft(req.URL.Path, "/"))
 	link, err := l.shortLinkService.Get(shortLink)
 
@@ -49,7 +49,7 @@ func (l *LinkHandler) ReturnFullUrl(res http.ResponseWriter, req *http.Request) 
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func (l *LinkHandler) CreateShortUrl(res http.ResponseWriter, req *http.Request) {
+func (l *LinkHandler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 
 	if err != nil {

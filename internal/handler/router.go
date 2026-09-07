@@ -18,9 +18,8 @@ func NewRouter(configuration *config.Configuration) *chi.Mux {
 	linkHandler := NewLinkHandler(configuration, shortLinkService)
 
 	router := chi.NewRouter()
-	router.Use(NewConfMiddleware(configuration))
-	router.Post("/", linkHandler.CreateShortUrl)
-	router.Get("/{slug}", linkHandler.ReturnFullUrl)
+	router.Post("/", linkHandler.CreateShortURL)
+	router.Get("/{slug}", linkHandler.ReturnFullURL)
 
 	return router
 }
