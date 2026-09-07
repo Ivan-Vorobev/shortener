@@ -33,11 +33,11 @@ func TestCreateLink(t *testing.T) {
 	defer res.Body.Close()
 	resBody, err := io.ReadAll(res.Body)
 
-	responseUrl := fmt.Sprintf("%s/", conf.BaseURL)
+	responseURL := fmt.Sprintf("%s/", conf.BaseURL)
 	require.NoError(t, err)
 	assert.Equal(t, "text/plain", res.Header.Get("Content-Type"))
-	assert.True(t, strings.HasPrefix(string(resBody), responseUrl))
-	assert.True(t, len(resBody) > len(responseUrl))
+	assert.True(t, strings.HasPrefix(string(resBody), responseURL))
+	assert.True(t, len(resBody) > len(responseURL))
 }
 
 func TestGetLink(t *testing.T) {
@@ -61,13 +61,13 @@ func TestGetLink(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	shortLinkUrl, err := url.Parse(string(shortLink))
+	shortLinkURL, err := url.Parse(string(shortLink))
 	assert.NoError(t, err)
 	// Проверяем что у нас короткий url без домена и queryString
-	assert.True(t, strings.HasSuffix(string(shortLink), shortLinkUrl.Path))
+	assert.True(t, strings.HasSuffix(string(shortLink), shortLinkURL.Path))
 
 	// собираем второй запрос с короткой ссылкой, чтобы проверить что нам вернется наша полная ссылка
-	requestGet := httptest.NewRequest(http.MethodGet, shortLinkUrl.Path, nil)
+	requestGet := httptest.NewRequest(http.MethodGet, shortLinkURL.Path, nil)
 	requestGet.Header.Set("Content-Type", "text/plain; charset=utf-8")
 
 	responseGet := httptest.NewRecorder()
