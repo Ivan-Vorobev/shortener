@@ -2,6 +2,7 @@ package handler
 
 import (
 	"Ivan-Vorobev/shortener/internal/config"
+	logger "Ivan-Vorobev/shortener/internal/logger"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,7 +23,8 @@ func TestCreateLink(t *testing.T) {
 	response := httptest.NewRecorder()
 
 	conf := config.NewDefaultConfig()
-	router := NewRouter(conf)
+	log, _ := logger.NewLogger()
+	router := NewRouter(conf, log)
 	router.ServeHTTP(response, request)
 
 	res := response.Result()
@@ -48,7 +50,8 @@ func TestGetLink(t *testing.T) {
 
 	responsePost := httptest.NewRecorder()
 
-	router := NewRouter(config.NewDefaultConfig())
+	log, _ := logger.NewLogger()
+	router := NewRouter(config.NewDefaultConfig(), log)
 	router.ServeHTTP(responsePost, requestPost)
 
 	res := responsePost.Result()

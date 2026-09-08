@@ -7,9 +7,10 @@ import (
 	"Ivan-Vorobev/shortener/internal/service"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
-func NewRouter(configuration *config.Configuration) *chi.Mux {
+func NewRouter(configuration *config.Configuration, log *zap.Logger) *chi.Mux {
 	shortLinks := make(map[model.Link]model.ShortLink)
 	links := make(map[model.ShortLink]model.Link)
 
@@ -18,6 +19,7 @@ func NewRouter(configuration *config.Configuration) *chi.Mux {
 	linkHandler := NewLinkHandler(configuration, shortLinkService)
 
 	router := chi.NewRouter()
+	router.Use(LoggingMiddleware(log))
 	router.Post("/", linkHandler.CreateShortURL)
 	router.Get("/{slug}", linkHandler.ReturnFullURL)
 
