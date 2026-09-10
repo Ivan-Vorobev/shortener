@@ -3,6 +3,7 @@ package handler
 import (
 	"Ivan-Vorobev/shortener/internal/config"
 	logger "Ivan-Vorobev/shortener/internal/logger"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,11 +36,47 @@ func TestCreateLink(t *testing.T) {
 	defer res.Body.Close()
 	resBody, err := io.ReadAll(res.Body)
 
+	assert.NoError(t, err)
+
 	responseURL := fmt.Sprintf("%s/", conf.BaseURL)
 	require.NoError(t, err)
 	assert.Equal(t, "text/plain", res.Header.Get("Content-Type"))
 	assert.True(t, strings.HasPrefix(string(resBody), responseURL))
 	assert.True(t, len(resBody) > len(responseURL))
+}
+
+func TestAPICreateLink(t *testing.T) {
+	link := `{"url":"https://yandex.ru"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(link))
+	request.Header.Set("Content-Type", "application/json")
+
+	response := httptest.NewRecorder()
+
+	conf := config.NewDefaultConfig()
+	log, _ := logger.NewLogger()
+	router := NewRouter(conf, log)
+	router.ServeHTTP(response, request)
+
+	res := response.Result()
+	// проверяем код ответа
+	assert.Equal(t, http.StatusCreated, res.StatusCode)
+
+	// получаем и проверяем тело запроса
+	defer res.Body.Close()
+	resBody, err := io.ReadAll(res.Body)
+
+	assert.NoError(t, err)
+
+	outURL := OutURL{}
+	err = json.Unmarshal(resBody, &outURL)
+	assert.NoError(t, err)
+
+	responseURL := fmt.Sprintf("%s/", conf.BaseURL)
+	require.NoError(t, err)
+
+	assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+	assert.True(t, strings.HasPrefix(string(outURL.Result), responseURL))
+	assert.True(t, len(outURL.Result) > len(responseURL))
 }
 
 func TestGetLink(t *testing.T) {
