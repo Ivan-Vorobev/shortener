@@ -5,12 +5,21 @@ import (
 	"Ivan-Vorobev/shortener/internal/model"
 	"Ivan-Vorobev/shortener/internal/repository"
 	"Ivan-Vorobev/shortener/internal/service"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 )
+
+type InURL struct {
+	URL string `json:"url"`
+}
+
+type OutURL struct {
+	Result string `json:"result"`
+}
 
 type LinkHandler struct {
 	configuration    config.Configuration
@@ -73,4 +82,52 @@ func (l *LinkHandler) CreateShortURL(res http.ResponseWriter, req *http.Request)
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusCreated)
 	res.Write([]byte(fmt.Sprintf("%s%s", l.configuration.BaseURL, shortLink.String())))
+}
+
+func (l *LinkHandler) CreateAPIShortURL(res http.ResponseWriter, req *http.Request) {
+	if req.Header.Get("Content-Type") != "application/json" {
+		http.Error(res, "Invalid content type", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	body, err := io.ReadAll(req.Body)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	input := InURL{}
+
+	if err := json.Unmarshal(body, &input); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	link, err := model.NewLink(input.URL)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	shortLink, err := l.shortLinkService.Create(link)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result := OutURL{
+		Result: fmt.Sprintf("%s%s", l.configuration.BaseURL, shortLink.String()),
+	}
+
+	responseData, err := json.Marshal(result)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusCreated)
+	res.Write(responseData)
 }
