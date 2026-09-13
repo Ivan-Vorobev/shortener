@@ -3,6 +3,7 @@ package handler
 import (
 	"Ivan-Vorobev/shortener/internal/config"
 	logger "Ivan-Vorobev/shortener/internal/logger"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/buffer"
 )
 
 func TestCreateLink(t *testing.T) {
@@ -64,6 +66,55 @@ func TestAPICreateLink(t *testing.T) {
 	// получаем и проверяем тело запроса
 	defer res.Body.Close()
 	resBody, err := io.ReadAll(res.Body)
+
+	assert.NoError(t, err)
+
+	outURL := OutURL{}
+	err = json.Unmarshal(resBody, &outURL)
+	assert.NoError(t, err)
+
+	responseURL := fmt.Sprintf("%s/", conf.BaseURL)
+	require.NoError(t, err)
+
+	assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+	assert.True(t, strings.HasPrefix(string(outURL.Result), responseURL))
+	assert.True(t, len(outURL.Result) > len(responseURL))
+}
+
+func TestAPICreateGZIPLinkRequest(t *testing.T) {
+	var body buffer.Buffer
+	link := `{"url":"https://yandex.ru"}`
+
+	compressedBody := gzip.NewWriter(&body)
+	compressedBody.Write([]byte(link))
+	compressedBody.Close()
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(body.String()))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Content-Encoding", "gzip")
+	request.Header.Set("Accept-Encoding", "gzip")
+
+	response := httptest.NewRecorder()
+
+	conf := config.NewDefaultConfig()
+	log, _ := logger.NewLogger()
+	router := NewRouter(conf, log)
+	router.ServeHTTP(response, request)
+
+	res := response.Result()
+	// проверяем код ответа
+	assert.Equal(t, http.StatusCreated, res.StatusCode)
+
+	// Проверяем что ответ пришел в сжатом виде
+	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
+
+	// получаем и проверяем тело запроса
+	defer res.Body.Close()
+	gzipReader, err := gzip.NewReader(res.Body)
+	assert.NoError(t, err)
+	defer gzipReader.Close()
+
+	resBody, err := io.ReadAll(gzipReader)
 
 	assert.NoError(t, err)
 

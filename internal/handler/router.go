@@ -20,6 +20,7 @@ func NewRouter(configuration *config.Configuration, log *zap.Logger) *chi.Mux {
 
 	router := chi.NewRouter()
 	router.Use(LoggingMiddleware(log))
+	router.Use(CompressMiddleware)
 	router.Post("/", linkHandler.CreateShortURL)
 	router.Post("/api/shorten", linkHandler.CreateAPIShortURL)
 	router.Get("/{slug}", linkHandler.ReturnFullURL)
