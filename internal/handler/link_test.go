@@ -3,6 +3,8 @@ package handler
 import (
 	"Ivan-Vorobev/shortener/internal/config"
 	logger "Ivan-Vorobev/shortener/internal/logger"
+	"Ivan-Vorobev/shortener/internal/model"
+	"bufio"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -10,6 +12,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -175,5 +179,109 @@ func TestGetLink(t *testing.T) {
 	assert.Equal(t, "text/plain", resGet.Header.Get("Content-Type"))
 	assert.Equal(t, http.StatusTemporaryRedirect, resGet.StatusCode)
 	assert.Equal(t, link, resGet.Header.Get("Location"))
+	assert.Empty(t, fullLink)
+}
+
+func TestAPIStorageCreateLink(t *testing.T) {
+	link := "https://yandex.ru"
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/shorten",
+		strings.NewReader(fmt.Sprintf(`{"url":"%s"}`, link)))
+	request.Header.Set("Content-Type", "application/json")
+
+	response := httptest.NewRecorder()
+
+	conf := config.NewDefaultConfig()
+	conf.FileStoragePath = filepath.Join(t.TempDir(), conf.FileStoragePath)
+
+	log, _ := logger.NewLogger()
+	router := NewRouter(conf, log)
+	router.ServeHTTP(response, request)
+
+	res := response.Result()
+	// проверяем код ответа
+	assert.Equal(t, http.StatusCreated, res.StatusCode)
+
+	// получаем и проверяем тело запроса
+	defer res.Body.Close()
+	resBody, err := io.ReadAll(res.Body)
+
+	assert.NoError(t, err)
+
+	outURL := OutURL{}
+	err = json.Unmarshal(resBody, &outURL)
+	assert.NoError(t, err)
+
+	file, err := os.OpenFile(conf.FileStoragePath, os.O_RDONLY, os.ModePerm)
+	assert.NoError(t, err)
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	assert.True(t, scanner.Scan())
+
+	var linkStorage model.LinkStorageRow
+	line := scanner.Text()
+
+	if err := json.Unmarshal([]byte(line), &linkStorage); err != nil {
+		assert.NoError(t, err)
+	}
+
+	originalLink, err := linkStorage.OriginalURL.Get()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "1", linkStorage.UUID)
+	assert.Equal(t, link, originalLink)
+	assert.Equal(t, outURL.Result, fmt.Sprintf("%s%s", conf.BaseURL, linkStorage.ShortURL.String()))
+}
+
+func TestAPIRestoreCreateLink(t *testing.T) {
+	conf := config.NewDefaultConfig()
+	conf.FileStoragePath = filepath.Join(t.TempDir(), conf.FileStoragePath)
+	shortLink := "Vu2LiXCO"
+	originalLink, err := model.NewLink("https://yandex.ru")
+
+	assert.NoError(t, err)
+
+	file, err := os.OpenFile(conf.FileStoragePath, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	assert.NoError(t, err)
+	writer := bufio.NewWriter(file)
+
+	storageData := model.LinkStorageRow{
+		UUID:        "1",
+		ShortURL:    model.NewShortLink(shortLink),
+		OriginalURL: originalLink,
+	}
+
+	storageDataJSON, err := json.Marshal(storageData)
+	storageDataJSON = append(storageDataJSON, byte('\n'))
+	t.Log(string(storageDataJSON))
+	assert.NoError(t, err)
+	bl, err := writer.WriteString(string(storageDataJSON))
+	assert.NotEqual(t, 0, bl)
+	assert.NoError(t, err)
+	require.NoError(t, writer.Flush())
+	assert.NoError(t, file.Close())
+
+	requestGet := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%s", shortLink), nil)
+	requestGet.Header.Set("Content-Type", "text/plain; charset=utf-8")
+
+	responseGet := httptest.NewRecorder()
+
+	log, _ := logger.NewLogger()
+	router := NewRouter(conf, log)
+
+	router.ServeHTTP(responseGet, requestGet)
+
+	resGet := responseGet.Result()
+
+	// получаем и проверяем тело запроса
+	defer resGet.Body.Close()
+	fullLink, err := io.ReadAll(resGet.Body)
+	assert.NoError(t, err)
+
+	redirectURL, err := originalLink.Get()
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusTemporaryRedirect, resGet.StatusCode)
+	assert.Equal(t, redirectURL, resGet.Header.Get("Location"))
 	assert.Empty(t, fullLink)
 }

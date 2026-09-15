@@ -2,7 +2,6 @@ package handler
 
 import (
 	"Ivan-Vorobev/shortener/internal/config"
-	"Ivan-Vorobev/shortener/internal/model"
 	"Ivan-Vorobev/shortener/internal/repository"
 	"Ivan-Vorobev/shortener/internal/service"
 
@@ -11,10 +10,11 @@ import (
 )
 
 func NewRouter(configuration *config.Configuration, log *zap.Logger) *chi.Mux {
-	shortLinks := make(map[model.Link]model.ShortLink)
-	links := make(map[model.ShortLink]model.Link)
+	shortLinkRepository, err := repository.NewMemoryShortLinkRepository(configuration.FileStoragePath)
+	if err != nil {
+		panic(err)
+	}
 
-	shortLinkRepository := repository.NewMemoryShortLinkRepository(shortLinks, links)
 	shortLinkService := service.NewShortLinkService(shortLinkRepository)
 	linkHandler := NewLinkHandler(configuration, shortLinkService)
 
