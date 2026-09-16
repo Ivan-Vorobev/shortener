@@ -20,6 +20,10 @@ type (
 )
 
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
+	if r.responseData.status == 0 {
+		r.responseData.status = http.StatusOK
+	}
+
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size // захватываем размер
 	return size, err

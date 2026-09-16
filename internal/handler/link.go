@@ -10,16 +10,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
-type InURL struct {
-	URL string `json:"url"`
-}
-
-type OutURL struct {
-	Result string `json:"result"`
-}
+const (
+	maxUrlBodySize = 512 * 1024 // 512 KB
+)
 
 type LinkHandler struct {
 	configuration    config.Configuration
@@ -34,7 +31,7 @@ func NewLinkHandler(config *config.Configuration, service *service.ShortLinkServ
 }
 
 func (l *LinkHandler) ReturnFullURL(res http.ResponseWriter, req *http.Request) {
-	shortLink := model.NewShortLink(strings.TrimLeft(req.URL.Path, "/"))
+	shortLink := model.NewShortLink(chi.URLParam(req, "slug"))
 	link, err := l.shortLinkService.Get(shortLink)
 
 	if err != nil {
@@ -59,9 +56,18 @@ func (l *LinkHandler) ReturnFullURL(res http.ResponseWriter, req *http.Request) 
 }
 
 func (l *LinkHandler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
-	body, err := io.ReadAll(req.Body)
+	limitedBody := http.MaxBytesReader(res, req.Body, maxUrlBodySize)
+	defer limitedBody.Close()
+
+	body, err := io.ReadAll(limitedBody)
 
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(res, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -90,14 +96,23 @@ func (l *LinkHandler) CreateAPIShortURL(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	body, err := io.ReadAll(req.Body)
+	limitedBody := http.MaxBytesReader(res, req.Body, maxUrlBodySize)
+	defer limitedBody.Close()
+
+	body, err := io.ReadAll(limitedBody)
 
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(res, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	input := InURL{}
+	input := model.InURL{}
 
 	if err := json.Unmarshal(body, &input); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -117,7 +132,7 @@ func (l *LinkHandler) CreateAPIShortURL(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	result := OutURL{
+	result := model.OutURL{
 		Result: fmt.Sprintf("%s%s", l.configuration.BaseURL, shortLink.String()),
 	}
 

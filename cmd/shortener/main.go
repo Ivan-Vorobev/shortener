@@ -4,31 +4,40 @@ import (
 	"Ivan-Vorobev/shortener/internal/config"
 	"Ivan-Vorobev/shortener/internal/handler"
 	"Ivan-Vorobev/shortener/internal/logger"
+	"Ivan-Vorobev/shortener/internal/utils"
+	"log"
 	"net/http"
 
 	"go.uber.org/zap"
 )
 
 func main() {
+	shutdown := utils.NewShutdown()
 	conf := config.LoadConfiguration()
-
-	log, err := logger.NewLogger()
+	logger, err := logger.NewLogger()
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	defer log.Sync()
+	defer func() {
+		shutdown.Close()
+		logger.Sync()
+	}()
 
-	router := handler.NewRouter(conf, log)
+	router, err := handler.NewRouter(conf, logger, shutdown)
 
-	log.Info(
+	if err != nil {
+		logger.Fatal("Failed to create router", zap.Error(err))
+	}
+
+	logger.Info(
 		"Starting server",
 		zap.String("addr", conf.ServerAddress),
 	)
 
 	err = http.ListenAndServe(conf.ServerAddress, router)
 	if err != nil {
-		panic(err)
+		logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }

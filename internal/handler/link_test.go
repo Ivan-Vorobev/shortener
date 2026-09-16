@@ -4,6 +4,7 @@ import (
 	"Ivan-Vorobev/shortener/internal/config"
 	logger "Ivan-Vorobev/shortener/internal/logger"
 	"Ivan-Vorobev/shortener/internal/model"
+	"Ivan-Vorobev/shortener/internal/utils"
 	"bufio"
 	"compress/gzip"
 	"encoding/json"
@@ -22,6 +23,32 @@ import (
 	"go.uber.org/zap/buffer"
 )
 
+func newTestConfig(t *testing.T) *config.Configuration {
+	t.Helper()
+
+	conf := config.NewDefaultConfig()
+	conf.FileStoragePath = filepath.Join(t.TempDir(), conf.FileStoragePath)
+
+	return conf
+}
+
+func newTestRouter(t *testing.T, conf *config.Configuration) http.Handler {
+	t.Helper()
+
+	log, err := logger.NewLogger()
+	require.NoError(t, err)
+
+	shutdown := utils.NewShutdown()
+	t.Cleanup(func() {
+		require.NoError(t, shutdown.Close())
+	})
+
+	router, err := NewRouter(conf, log, shutdown)
+	require.NoError(t, err)
+
+	return router
+}
+
 func TestCreateLink(t *testing.T) {
 	link := "https://yandex.ru"
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(link))
@@ -29,9 +56,8 @@ func TestCreateLink(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	conf := config.NewDefaultConfig()
-	log, _ := logger.NewLogger()
-	router := NewRouter(conf, log)
+	conf := newTestConfig(t)
+	router := newTestRouter(t, conf)
 	router.ServeHTTP(response, request)
 
 	res := response.Result()
@@ -58,9 +84,8 @@ func TestAPICreateLink(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	conf := config.NewDefaultConfig()
-	log, _ := logger.NewLogger()
-	router := NewRouter(conf, log)
+	conf := newTestConfig(t)
+	router := newTestRouter(t, conf)
 	router.ServeHTTP(response, request)
 
 	res := response.Result()
@@ -73,7 +98,7 @@ func TestAPICreateLink(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	outURL := OutURL{}
+	outURL := model.OutURL{}
 	err = json.Unmarshal(resBody, &outURL)
 	assert.NoError(t, err)
 
@@ -100,9 +125,8 @@ func TestAPICreateGZIPLinkRequest(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	conf := config.NewDefaultConfig()
-	log, _ := logger.NewLogger()
-	router := NewRouter(conf, log)
+	conf := newTestConfig(t)
+	router := newTestRouter(t, conf)
 	router.ServeHTTP(response, request)
 
 	res := response.Result()
@@ -122,7 +146,7 @@ func TestAPICreateGZIPLinkRequest(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	outURL := OutURL{}
+	outURL := model.OutURL{}
 	err = json.Unmarshal(resBody, &outURL)
 	assert.NoError(t, err)
 
@@ -142,8 +166,8 @@ func TestGetLink(t *testing.T) {
 
 	responsePost := httptest.NewRecorder()
 
-	log, _ := logger.NewLogger()
-	router := NewRouter(config.NewDefaultConfig(), log)
+	conf := newTestConfig(t)
+	router := newTestRouter(t, conf)
 	router.ServeHTTP(responsePost, requestPost)
 
 	res := responsePost.Result()
@@ -192,11 +216,8 @@ func TestAPIStorageCreateLink(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	conf := config.NewDefaultConfig()
-	conf.FileStoragePath = filepath.Join(t.TempDir(), conf.FileStoragePath)
-
-	log, _ := logger.NewLogger()
-	router := NewRouter(conf, log)
+	conf := newTestConfig(t)
+	router := newTestRouter(t, conf)
 	router.ServeHTTP(response, request)
 
 	res := response.Result()
@@ -209,7 +230,7 @@ func TestAPIStorageCreateLink(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	outURL := OutURL{}
+	outURL := model.OutURL{}
 	err = json.Unmarshal(resBody, &outURL)
 	assert.NoError(t, err)
 
@@ -235,8 +256,7 @@ func TestAPIStorageCreateLink(t *testing.T) {
 }
 
 func TestAPIRestoreCreateLink(t *testing.T) {
-	conf := config.NewDefaultConfig()
-	conf.FileStoragePath = filepath.Join(t.TempDir(), conf.FileStoragePath)
+	conf := newTestConfig(t)
 	shortLink := "Vu2LiXCO"
 	originalLink, err := model.NewLink("https://yandex.ru")
 
@@ -267,9 +287,7 @@ func TestAPIRestoreCreateLink(t *testing.T) {
 
 	responseGet := httptest.NewRecorder()
 
-	log, _ := logger.NewLogger()
-	router := NewRouter(conf, log)
-
+	router := newTestRouter(t, conf)
 	router.ServeHTTP(responseGet, requestGet)
 
 	resGet := responseGet.Result()
