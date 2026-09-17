@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-
-	"go.uber.org/zap/buffer"
 )
 
 type compressWriter struct {
-	w  http.ResponseWriter
-	zw *gzip.Writer
+	w           http.ResponseWriter
+	zw          *gzip.Writer
+	wroteHeader bool
+	canGZIP     bool
+	compressed  bool
 }
 
 func NewGZIPCompressWriter(w http.ResponseWriter) *compressWriter {
@@ -27,24 +28,52 @@ func (c *compressWriter) Header() http.Header {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
-	return c.zw.Write(p)
+	if !c.wroteHeader {
+		c.WriteHeader(http.StatusOK)
+	}
+
+	if !c.canGZIP {
+		return c.w.Write(p)
+	}
+
+	return c.writeGZIP(p)
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
-	if statusCode < 300 || statusCode >= 400 {
+	if c.wroteHeader {
+		return
+	}
+
+	c.wroteHeader = true
+	c.canGZIP = canCompressStatus(statusCode)
+
+	if c.canGZIP {
 		c.w.Header().Set("Content-Encoding", "gzip")
 	}
+
 	c.w.WriteHeader(statusCode)
 }
 
 func (c *compressWriter) Close() error {
+	if !c.compressed {
+		return nil
+	}
+
 	return c.zw.Close()
+}
+
+func (c *compressWriter) writeGZIP(p []byte) (int, error) {
+	n, err := c.zw.Write(p)
+	if n > 0 || err == nil {
+		c.compressed = true
+	}
+
+	return n, err
 }
 
 type compressForHeaderWriter struct {
 	compressWriter
 	allowedContentTypes []string
-	canGZIP             bool
 }
 
 func NewGZIPCompressWriterForHeader(w http.ResponseWriter, allowedContentTypes []string) *compressForHeaderWriter {
@@ -52,12 +81,18 @@ func NewGZIPCompressWriterForHeader(w http.ResponseWriter, allowedContentTypes [
 	return &compressForHeaderWriter{
 		compressWriter:      *cw,
 		allowedContentTypes: allowedContentTypes,
-		canGZIP:             false,
 	}
 }
 
 func (c *compressForHeaderWriter) WriteHeader(statusCode int) {
-	if statusCode < 300 || statusCode >= 400 {
+	if c.wroteHeader {
+		return
+	}
+
+	c.wroteHeader = true
+	c.canGZIP = false
+
+	if canCompressStatus(statusCode) {
 		contentType := strings.ToLower(c.w.Header().Get("Content-Type"))
 		var contentTypes []string
 		if strings.Contains(contentType, ";") {
@@ -71,6 +106,7 @@ func (c *compressForHeaderWriter) WriteHeader(statusCode int) {
 			c.w.Header().Set("Content-Encoding", "gzip")
 		}
 	}
+
 	c.w.WriteHeader(statusCode)
 }
 
@@ -80,13 +116,31 @@ type compressReader struct {
 }
 
 func (c *compressForHeaderWriter) Write(p []byte) (int, error) {
-	if c.canGZIP {
-		return c.zw.Write(p)
+	if !c.wroteHeader {
+		c.WriteHeader(http.StatusOK)
 	}
 
-	var b buffer.Buffer
-	c.zw.Reset(&b)
+	if c.canGZIP {
+		return c.writeGZIP(p)
+	}
+
 	return c.w.Write(p)
+}
+
+func (c *compressForHeaderWriter) Close() error {
+	return c.compressWriter.Close()
+}
+
+func canCompressStatus(statusCode int) bool {
+	if statusCode >= 100 && statusCode < 200 {
+		return false
+	}
+
+	if statusCode == http.StatusNoContent || statusCode == http.StatusNotModified {
+		return false
+	}
+
+	return statusCode < 300 || statusCode >= 400
 }
 
 func NewGZIPCompressReader(r io.ReadCloser) (*compressReader, error) {

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	maxUrlBodySize = 512 * 1024 // 512 KB
+	maxURLBodySize = 512 * 1024 // 512 KB
 )
 
 type LinkHandler struct {
@@ -56,7 +56,7 @@ func (l *LinkHandler) ReturnFullURL(res http.ResponseWriter, req *http.Request) 
 }
 
 func (l *LinkHandler) CreateShortURL(res http.ResponseWriter, req *http.Request) {
-	limitedBody := http.MaxBytesReader(res, req.Body, maxUrlBodySize)
+	limitedBody := http.MaxBytesReader(res, req.Body, maxURLBodySize)
 	defer limitedBody.Close()
 
 	body, err := io.ReadAll(limitedBody)
@@ -96,7 +96,7 @@ func (l *LinkHandler) CreateAPIShortURL(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	limitedBody := http.MaxBytesReader(res, req.Body, maxUrlBodySize)
+	limitedBody := http.MaxBytesReader(res, req.Body, maxURLBodySize)
 	defer limitedBody.Close()
 
 	body, err := io.ReadAll(limitedBody)

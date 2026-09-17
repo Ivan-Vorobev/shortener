@@ -70,7 +70,7 @@ func (s *FileShortLinkRepository) Close() (err error) {
 
 func (s *FileShortLinkRepository) saveToStorage(link model.Link, shortLink model.ShortLink) error {
 	linkStorage := model.LinkStorageRow{
-		UUID:        strconv.Itoa(len(s.InMemoryShortLinkRepository.shortLinks) + 1),
+		UUID:        strconv.Itoa(len(s.InMemoryShortLinkRepository.shortLinks)),
 		ShortURL:    shortLink,
 		OriginalURL: link,
 	}
