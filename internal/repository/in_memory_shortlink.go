@@ -17,21 +17,24 @@ var (
 	ErrorNotFound = errors.New("short link not found")
 )
 
-func NewMemoryShortLinkRepository(shortLinks map[model.Link]model.ShortLink, links map[model.ShortLink]model.Link) *ShortLinkRepository {
-	return &ShortLinkRepository{
+func NewInMemoryShortLinkRepository() *InMemoryShortLinkRepository {
+	shortLinks := make(map[model.Link]model.ShortLink)
+	links := make(map[model.ShortLink]model.Link)
+
+	return &InMemoryShortLinkRepository{
 		shortLinks: shortLinks,
 		links:      links,
 		mutex:      sync.RWMutex{},
 	}
 }
 
-type ShortLinkRepository struct {
+type InMemoryShortLinkRepository struct {
 	shortLinks map[model.Link]model.ShortLink
 	links      map[model.ShortLink]model.Link
 	mutex      sync.RWMutex
 }
 
-func (s *ShortLinkRepository) Get(shortLink model.ShortLink) (model.Link, error) {
+func (s *InMemoryShortLinkRepository) Get(shortLink model.ShortLink) (model.Link, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -43,7 +46,7 @@ func (s *ShortLinkRepository) Get(shortLink model.ShortLink) (model.Link, error)
 	return link, nil
 }
 
-func (s *ShortLinkRepository) Create(link model.Link) (shortLink model.ShortLink, err error) {
+func (s *InMemoryShortLinkRepository) Create(link model.Link) (shortLink model.ShortLink, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
